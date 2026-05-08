@@ -54,14 +54,13 @@
 3. **Deploy**
    - Click "Create Web Service"
    - Wait for deployment (2-3 minutes)
-   - Your API will be at: `https://legal-doc-reviewer-api.onrender.com`
+   - Your API will be at: `https://legal-doc-reviewer.onrender.com`
 
 ### Phase 3: Connect Frontend to Backend
 
 1. **Update Frontend API URL**
-   - Open `frontend/src/App.jsx`
-   - Find the API base URL constant
-   - Update it to: `https://legal-doc-reviewer-api.onrender.com`
+   - The frontend config already points to: `https://legal-doc-reviewer.onrender.com`
+   - No changes needed—it's already configured!
 
 2. **Commit and Push**
    ```bash

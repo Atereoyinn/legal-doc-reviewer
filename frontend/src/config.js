@@ -3,7 +3,7 @@
 
 const API_BASE_URL = process.env.VITE_API_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'https://legal-doc-reviewer-api.onrender.com'
+    ? 'https://legal-doc-reviewer.onrender.com'
     : 'http://localhost:8000'
   );
 
