@@ -1,11 +1,10 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-
-from api.documents import router as documents_router
-from api.query import router as query_router
-from api.upload import router as upload_router
-from db.database import init_db
+from backend.api.documents import router as documents_router
+from backend.api.query import router as query_router
+from backend.api.upload import router as upload_router
+from backend.db.database import init_db
 
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware 

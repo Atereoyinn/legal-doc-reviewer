@@ -10,8 +10,7 @@ from openai import AsyncOpenAI
 class LLMExtractionError(RuntimeError):
     """Raised when the LLM extractor fails or returns invalid output."""
 
-
-from app.services import openai_embeddings
+from backend.services import openai_embeddings
 
 # Document type definitions with their expected fields
 DOCUMENT_TYPES = {

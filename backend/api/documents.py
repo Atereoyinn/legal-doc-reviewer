@@ -7,9 +7,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
-
-from app.db.database import SessionLocal
-from app.db.models import Document
+from backend.db.database import SessionLocal
+from backend.db.models import Document
 
 
 router = APIRouter()

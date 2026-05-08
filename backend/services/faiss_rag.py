@@ -7,12 +7,12 @@ import faiss
 import numpy as np
 
 
-from app.services.openai_embeddings import (
+from backend.services.openai_embeddings import (
     OpenAIEmbeddingsError,
     embed_texts,
     get_openai_client,
 )
-from app.services.text_chunking import chunk_text
+from backend.services.text_chunking import chunk_text
 
 class FAISSRAGError(RuntimeError):
     """Raised when FAISS RAG indexing or retrieval fails."""

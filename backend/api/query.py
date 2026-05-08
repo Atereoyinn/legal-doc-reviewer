@@ -6,8 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from openai import AsyncOpenAI
 
-
-from app.services.faiss_rag import FAISSRAGError, retrieve_with_scores
+from backend.services.faiss_rag import FAISSRAGError, retrieve_with_scores
 
 router = APIRouter()
 

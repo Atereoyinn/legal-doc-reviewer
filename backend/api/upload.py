@@ -6,13 +6,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from sqlalchemy.exc import SQLAlchemyError
 
-
-from app.db.database import SessionLocal
-from app.db.models import Document
-from app.services.pdf_extractor import PDFExtractionError, extract_pdf_text
-from app.services.faiss_rag import FAISSRAGError, build_index
-from app.services.llm_extractor import LLMExtractionError, extract_structured_fields
-from app.services.risk_analyzer import analyze_risks
+from backend.db.database import SessionLocal
+from backend.db.models import Document
+from backend.services.pdf_extractor import PDFExtractionError, extract_pdf_text
+from backend.services.faiss_rag import FAISSRAGError, build_index
+from backend.services.llm_extractor import LLMExtractionError, extract_structured_fields
+from backend.services.risk_analyzer import analyze_risks
 
 router = APIRouter()
 

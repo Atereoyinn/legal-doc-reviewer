@@ -27,7 +27,7 @@ class Base(DeclarativeBase):
 
 # app/db/database.py refactor
 def init_db() -> None:
-    from app.db import models  # noqa: F401
+    from backend.db import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
     with engine.begin() as conn:
