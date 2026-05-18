@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-
-const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { queryAPI, APIError } from "../services/api.js";
 
 const SUGGESTED_PROMPTS = [
   "Summarize this agreement",
@@ -9,7 +8,7 @@ const SUGGESTED_PROMPTS = [
   "What clauses are missing?",
 ];
 
-export default function ChatPanel({ disabled = false, onAnswer }) {
+export default function ChatPanel({ docId = null, disabled = false, onAnswer }) {
   const [messages, setMessages] = useState([]);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,37 +33,24 @@ export default function ChatPanel({ disabled = false, onAnswer }) {
     const q = question.trim();
     if (!q) return;
 
-    // Add user message
     const userMessage = { type: "user", text: q };
     setMessages((prev) => [...prev, userMessage]);
     setQuestion("");
 
     setLoading(true);
     try {
-      const res = await fetch(`${BACKEND_BASE_URL}/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q }),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        const detail = data?.detail ? String(data.detail) : "Query failed.";
-        throw new Error(detail);
-      }
-
+      const data = await queryAPI.ask(q, docId);
       const answer = String(data?.answer || "");
       const sources = Array.isArray(data?.sources) ? data.sources : [];
 
-      // Add assistant message
       const assistantMessage = { type: "assistant", text: answer, sources };
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Notify parent
       onAnswer?.({ question: q, answer, sources });
     } catch (e) {
-      setError(e?.message || "Query failed.");
-      const errorMessage = { type: "assistant", text: `Error: ${e?.message || "Query failed"}`, isError: true };
+      const errorMsg = e instanceof APIError ? e.message : "Query failed.";
+      setError(errorMsg);
+      const errorMessage = { type: "assistant", text: `Error: ${errorMsg}`, isError: true };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);

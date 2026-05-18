@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-
-const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { documentsAPI, APIError } from "../services/api.js";
 
 function formatDate(isoString) {
   try {
@@ -33,12 +32,15 @@ export default function SidebarHistory({ activeId, onSelect }) {
       setError("");
       setLoading(true);
       try {
-        const res = await fetch(`${BACKEND_BASE_URL}/documents`);
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.detail || "Failed to load documents.");
-        if (!cancelled) setDocs(Array.isArray(data?.documents) ? data.documents : []);
+        const result = await documentsAPI.list();
+        if (!cancelled) {
+          setDocs(Array.isArray(result?.documents) ? result.documents : []);
+        }
       } catch (e) {
-        if (!cancelled) setError(e?.message || "Failed to load documents.");
+        if (!cancelled) {
+          const errorMsg = e instanceof APIError ? e.message : "Failed to load documents.";
+          setError(errorMsg);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -53,12 +55,11 @@ export default function SidebarHistory({ activeId, onSelect }) {
   async function handleSelect(id) {
     setError("");
     try {
-      const res = await fetch(`${BACKEND_BASE_URL}/documents/${id}`);
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.detail || "Failed to load document.");
+      const data = await documentsAPI.get(id);
       onSelect?.(data);
     } catch (e) {
-      setError(e?.message || "Failed to load document.");
+      const errorMsg = e instanceof APIError ? e.message : "Failed to load document.";
+      setError(errorMsg);
     }
   }
 

@@ -1,10 +1,11 @@
+import { formatFieldName } from "../services/formatting.js";
+
 export default function RiskSummary({ risk_analysis, missing_fields = [] }) {
   const flags = risk_analysis?.flags || [];
   const missing = new Set(missing_fields);
 
-  // Highlight important missing fields
-  const importantMissing = ["lease_end_date", "completion_date", "deposit", "rent"];
-  const missingImportant = importantMissing.filter((f) => missing.has(f));
+  const IMPORTANT_MISSING_FIELDS = ["lease_end_date", "completion_date", "deposit", "rent"];
+  const missingImportant = IMPORTANT_MISSING_FIELDS.filter((f) => missing.has(f));
 
   const allIssues = [
     ...flags.map((f) => ({
@@ -14,7 +15,7 @@ export default function RiskSummary({ risk_analysis, missing_fields = [] }) {
     })),
     ...missingImportant.map((f) => ({
       type: "missing",
-      text: `Missing: ${f.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())}`,
+      text: `Missing: ${formatFieldName(f)}`,
       severity: "warning",
     })),
   ];

@@ -47,8 +47,8 @@
      - **Environment Variables** (Add these):
        ```
        OPENAI_API_KEY=your_api_key_here
-       ENVIRONMENT=production
-       CORS_ORIGINS=["https://YOUR_USERNAME.github.io"]
+       API_KEY=your_strong_random_secret_here
+       CORS_ORIGINS=https://YOUR_USERNAME.github.io
        ```
 
 3. **Deploy**

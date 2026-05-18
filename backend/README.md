@@ -311,14 +311,14 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 API available at `http://localhost:8000`
 Auto-generated docs: `http://localhost:8000/docs`
 
 ### Production (Heroku example from Procfile)
 ```bash
-web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+web: gunicorn backend.main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker
 ```
 
 ---

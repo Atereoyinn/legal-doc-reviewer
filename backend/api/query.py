@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import logging
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from openai import AsyncOpenAI
 
+from backend.api.auth import require_api_key
+from backend.api.limiter import limiter
 from backend.services.faiss_rag import FAISSRAGError, retrieve_with_scores
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1, max_length=1000)
+    doc_id: int | None = None
 
 
 class QueryResponse(BaseModel):
@@ -20,14 +25,16 @@ class QueryResponse(BaseModel):
     sources: list[dict[str, object]] = []
 
 
-@router.post("/query", response_model=QueryResponse)
-async def query_document(payload: QueryRequest) -> QueryResponse:
-    """Answer a question grounded in the most relevant indexed document chunks."""
+@router.post("/query", response_model=QueryResponse, dependencies=[Depends(require_api_key)])
+@limiter.limit("20/minute")
+async def query_document(request: Request, payload: QueryRequest) -> QueryResponse:
     try:
-        sources = retrieve_with_scores(payload.question, top_k=3)
+        sources = retrieve_with_scores(payload.question, payload.doc_id, top_k=3)
     except FAISSRAGError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.info("FAISS retrieval failed: %s", e)
+        raise HTTPException(status_code=400, detail="No document indexed. Please upload a document first.")
     except Exception:
+        logger.exception("Unexpected error retrieving context")
         raise HTTPException(status_code=500, detail="Unexpected error retrieving context.")
 
     if not sources:
@@ -35,7 +42,7 @@ async def query_document(payload: QueryRequest) -> QueryResponse:
 
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=502, detail="OPENAI_API_KEY is not set.")
+        raise HTTPException(status_code=502, detail="Service configuration error.")
 
     model = os.getenv("OPENAI_CHAT_MODEL", "gpt-3.5-turbo")
     client = AsyncOpenAI(api_key=api_key)
@@ -68,10 +75,10 @@ async def query_document(payload: QueryRequest) -> QueryResponse:
             temperature=0,
         )
     except Exception:
-        raise HTTPException(status_code=502, detail="OpenAI request failed.")
+        logger.exception("OpenAI request failed")
+        raise HTTPException(status_code=502, detail="AI service request failed.")
 
     answer = (resp.choices[0].message.content or "").strip()
     if not answer:
         answer = "I don't know based on the provided document."
     return QueryResponse(answer=answer, sources=sources)
-

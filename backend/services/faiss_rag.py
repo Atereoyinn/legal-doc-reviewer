@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Final, TypedDict
 
 import faiss
 import numpy as np
-
 
 from backend.services.openai_embeddings import (
     OpenAIEmbeddingsError,
@@ -14,22 +14,24 @@ from backend.services.openai_embeddings import (
 )
 from backend.services.text_chunking import chunk_text
 
+
 class FAISSRAGError(RuntimeError):
     """Raised when FAISS RAG indexing or retrieval fails."""
 
 
 @dataclass(frozen=True)
 class FAISSRAGConfig:
-    chunk_size: int = 1200  # characters
-    chunk_overlap: int = 200  # characters
+    chunk_size: int = 1200
+    chunk_overlap: int = 200
     top_k: int = 5
     embedding_model: str = "text-embedding-3-small"
 
 
 _CONFIG = FAISSRAGConfig()
-_INDEX: faiss.Index | None = None
-_CHUNKS: list[str] = []
-_DIM: int | None = None
+_LOCK = threading.Lock()
+# Per-document indexes: doc_id -> (index, chunks, dim)
+_INDEXES: dict[int, tuple[faiss.Index, list[str], int]] = {}
+_LAST_DOC_ID: int | None = None
 
 
 class RetrievedChunk(TypedDict):
@@ -38,17 +40,13 @@ class RetrievedChunk(TypedDict):
 
 
 def _l2_normalize(v: np.ndarray) -> np.ndarray:
-    """L2-normalize vectors row-wise (in-place safe)."""
     norms = np.linalg.norm(v, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
     return v / norms
 
 
-def build_index(text: str) -> None:
-    """
-    Build/overwrite an in-memory FAISS index for the given document text.
-    """
-    global _INDEX, _CHUNKS, _DIM
+def build_index(text: str, doc_id: int) -> None:
+    global _LAST_DOC_ID
 
     if not text or not text.strip():
         raise FAISSRAGError("No text provided to index.")
@@ -76,17 +74,22 @@ def build_index(text: str) -> None:
     index = faiss.IndexFlatIP(dim)
     index.add(embeddings)
 
-    _INDEX = index
-    _CHUNKS = chunks
-    _DIM = dim
+    with _LOCK:
+        _INDEXES[doc_id] = (index, chunks, dim)
+        _LAST_DOC_ID = doc_id
 
 
-def retrieve(question: str, *, top_k: int | None = None) -> list[str]:
-    """
-    Retrieve top-k relevant chunks from the current FAISS index.
-    """
-    if _INDEX is None or _DIM is None or not _CHUNKS:
-        raise FAISSRAGError("FAISS index not initialized. Upload/index a document first.")
+def _resolve_index(doc_id: int | None) -> tuple[faiss.Index, list[str], int]:
+    """Return the index for the given doc_id, or the most recently uploaded one."""
+    with _LOCK:
+        effective_id = doc_id if doc_id is not None else _LAST_DOC_ID
+        if effective_id is None or effective_id not in _INDEXES:
+            raise FAISSRAGError("No document index found. Upload a document first.")
+        return _INDEXES[effective_id]
+
+
+def retrieve(question: str, doc_id: int | None = None, *, top_k: int | None = None) -> list[str]:
+    index, chunks, dim = _resolve_index(doc_id)
 
     if not question or not question.strip():
         raise FAISSRAGError("Question is empty.")
@@ -104,21 +107,21 @@ def retrieve(question: str, *, top_k: int | None = None) -> list[str]:
     q = _l2_normalize(q)
     k_default: Final[int] = _CONFIG.top_k
     k = int(top_k or k_default)
-    k = max(1, min(k, len(_CHUNKS)))  # clamp to index size
+    k = max(1, min(k, len(chunks)))
 
-    _, idxs = _INDEX.search(q, k)
+    _, idxs = index.search(q, k)
     indices = [int(i) for i in idxs[0] if int(i) >= 0]
-    return [_CHUNKS[i] for i in indices]
+    return [chunks[i] for i in indices]
 
 
-def retrieve_with_scores(question: str, *, top_k: int | None = None) -> list[RetrievedChunk]:
-    """
-    Retrieve top-k relevant chunks plus similarity scores.
-
-    Scores are cosine similarities mapped to [0, 1] via (cos + 1) / 2.
-    """
-    if _INDEX is None or _DIM is None or not _CHUNKS:
-        raise FAISSRAGError("FAISS index not initialized. Upload/index a document first.")
+def retrieve_with_scores(
+    question: str,
+    doc_id: int | None = None,
+    *,
+    top_k: int | None = None,
+) -> list[RetrievedChunk]:
+    """Retrieve top-k relevant chunks with cosine similarity scores mapped to [0, 1]."""
+    index, chunks, dim = _resolve_index(doc_id)
 
     if not question or not question.strip():
         raise FAISSRAGError("Question is empty.")
@@ -136,20 +139,15 @@ def retrieve_with_scores(question: str, *, top_k: int | None = None) -> list[Ret
     q = _l2_normalize(q)
     k_default: Final[int] = _CONFIG.top_k
     k = int(top_k or k_default)
-    k = max(1, min(k, len(_CHUNKS)))
+    k = max(1, min(k, len(chunks)))
 
-    scores, idxs = _INDEX.search(q, k)
+    scores, idxs = index.search(q, k)
     out: list[RetrievedChunk] = []
     for score, idx in zip(scores[0], idxs[0], strict=False):
         i = int(idx)
         if i < 0:
             continue
-        # Map cosine similarity [-1, 1] to [0, 1]
         mapped = float((float(score) + 1.0) / 2.0)
-        if mapped < 0.0:
-            mapped = 0.0
-        if mapped > 1.0:
-            mapped = 1.0
-        out.append({"text": _CHUNKS[i], "score": mapped})
+        mapped = max(0.0, min(1.0, mapped))
+        out.append({"text": chunks[i], "score": mapped})
     return out
-

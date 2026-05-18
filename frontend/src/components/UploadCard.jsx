@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-
-const BACKEND_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { uploadAPI, APIError } from "../services/api.js";
 
 export default function UploadCard({ onUploaded }) {
   const [file, setFile] = useState(null);
@@ -31,25 +30,11 @@ export default function UploadCard({ onUploaded }) {
 
     setLoading(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-
-      const res = await fetch(`${BACKEND_BASE_URL}/upload`, {
-        method: "POST",
-        body: form,
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        const detail = data?.detail ? String(data.detail) : "Upload failed.";
-        throw new Error(detail);
-      }
-
-      // Success - call parent callback
+      const data = await uploadAPI.upload(file);
       onUploaded?.(data);
       setFile(null);
     } catch (e) {
-      setError(e?.message || "Upload failed.");
+      setError(e instanceof APIError ? e.message : "Upload failed.");
     } finally {
       setLoading(false);
     }

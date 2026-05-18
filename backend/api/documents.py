@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.api.auth import require_api_key
+from backend.api.limiter import limiter
 from backend.db.database import SessionLocal
 from backend.db.models import Document
-
 
 router = APIRouter()
 
@@ -34,9 +35,9 @@ class DocumentDetailResponse(BaseModel):
     doc_type: str | None = None
 
 
-@router.get("/documents", response_model=DocumentListResponse)
-def list_documents() -> DocumentListResponse:
-    """Return all uploaded documents (metadata only)."""
+@router.get("/documents", response_model=DocumentListResponse, dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+def list_documents(request: Request) -> DocumentListResponse:
     db = SessionLocal()
     try:
         rows = db.query(Document).order_by(Document.created_at.desc()).all()
@@ -56,9 +57,9 @@ def list_documents() -> DocumentListResponse:
         db.close()
 
 
-@router.get("/documents/{doc_id}", response_model=DocumentDetailResponse)
-def get_document(doc_id: int) -> DocumentDetailResponse:
-    """Return a single document including raw text + structured data."""
+@router.get("/documents/{doc_id}", response_model=DocumentDetailResponse, dependencies=[Depends(require_api_key)])
+@limiter.limit("30/minute")
+def get_document(request: Request, doc_id: int = Path(..., gt=0)) -> DocumentDetailResponse:
     db = SessionLocal()
     try:
         doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -80,4 +81,3 @@ def get_document(doc_id: int) -> DocumentDetailResponse:
         raise HTTPException(status_code=500, detail="Failed to load document.")
     finally:
         db.close()
-

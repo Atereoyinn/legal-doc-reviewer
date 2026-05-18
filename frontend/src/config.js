@@ -1,8 +1,5 @@
-// Frontend Configuration
-// Update API_BASE_URL based on your deployment
-
-const API_BASE_URL = process.env.VITE_API_URL || 
-  (process.env.NODE_ENV === 'production' 
+const API_BASE_URL = import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
     ? 'https://legal-doc-reviewer.onrender.com'
     : 'http://localhost:8000'
   );

@@ -1,25 +1,5 @@
 import { useMemo } from "react";
-
-function formatPrice(price) {
-  if (price === null || price === undefined || price === "") return "";
-  const n = Number(price);
-  if (!Number.isFinite(n)) return String(price);
-  return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-}
-
-function formatFieldName(key) {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function formatFieldValue(key, value) {
-  if (value === null || value === undefined || value === "") return "";
-  if (["purchase_price", "salary", "rent", "deposit", "term_length"].includes(key)) {
-    return formatPrice(value);
-  }
-  return String(value);
-}
+import { formatPrice, formatFieldName, formatFieldValue } from "../services/formatting.js";
 
 // Group fields by category
 function groupFields(structured_data, missing_fields) {
